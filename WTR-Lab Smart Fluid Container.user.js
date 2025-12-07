@@ -8,8 +8,8 @@
 // @match        https://www.wtr-lab.com/*
 // @grant        GM_addStyle
 // @run-at       document-start
-// @downloadURL  https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/WTR-Lab%20Smart%20Fluid%20Container-1.1.user.js
-// @updateURL    https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/WTR-Lab%20Smart%20Fluid%20Container-1.1.user.js
+// @downloadURL  https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/WTR-Lab%20Smart%20Fluid%20Container.user.js
+// @updateURL    https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/WTR-Lab%20Smart%20Fluid%20Container.user.js
 // ==/UserScript==
 
 (function() {
