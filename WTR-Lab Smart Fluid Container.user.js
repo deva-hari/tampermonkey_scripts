@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTR-Lab Smart Fluid Container
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.2.1
 // @description  Calculates device width dynamically and overrides Bootstrap static steps with configurable UI
 // @author       deva-hari
 // @match        https://wtr-lab.com/*
@@ -26,7 +26,8 @@
     let settings = {
         totalGutter: GM_getValue(STORAGE_KEY + '_totalGutter', DEFAULT_TOTAL_GUTTER),
         minTriggerWidth: GM_getValue(STORAGE_KEY + '_minTriggerWidth', DEFAULT_MIN_TRIGGER_WIDTH),
-        enabled: GM_getValue(STORAGE_KEY + '_enabled', true)
+        enabled: GM_getValue(STORAGE_KEY + '_enabled', true),
+        uiVisible: GM_getValue(STORAGE_KEY + '_uiVisible', false)
     };
 
     // --- UI Styles ---
@@ -44,6 +45,11 @@
             font-family: Arial, sans-serif;
             min-width: 280px;
             max-width: 350px;
+            display: none;
+        }
+
+        #wtr-smart-container-panel.visible {
+            display: block;
         }
 
         #wtr-smart-container-panel.collapsed {
@@ -221,6 +227,7 @@
         GM_setValue(STORAGE_KEY + '_totalGutter', settings.totalGutter);
         GM_setValue(STORAGE_KEY + '_minTriggerWidth', settings.minTriggerWidth);
         GM_setValue(STORAGE_KEY + '_enabled', settings.enabled);
+        GM_setValue(STORAGE_KEY + '_uiVisible', settings.uiVisible);
         injectContainerCSS();
         updateContainerWidth();
     }
@@ -230,7 +237,8 @@
         settings = {
             totalGutter: DEFAULT_TOTAL_GUTTER,
             minTriggerWidth: DEFAULT_MIN_TRIGGER_WIDTH,
-            enabled: true
+            enabled: true,
+            uiVisible: false
         };
         saveSettings();
         updateUI();
@@ -287,6 +295,7 @@
         const gutterValue = document.getElementById('wtr-gutter-value');
         const triggerValue = document.getElementById('wtr-trigger-value');
         const toggleBtn = document.getElementById('wtr-enable-toggle');
+        const panel = document.getElementById('wtr-smart-container-panel');
 
         if (gutterInput) gutterInput.value = settings.totalGutter;
         if (triggerInput) triggerInput.value = settings.minTriggerWidth;
@@ -294,6 +303,15 @@
         if (triggerValue) triggerValue.textContent = settings.minTriggerWidth;
         if (toggleBtn) toggleBtn.textContent = settings.enabled ? 'Disable Feature' : 'Enable Feature';
         if (toggleBtn) toggleBtn.classList.toggle('disabled', !settings.enabled);
+        
+        if (panel) {
+            if (settings.uiVisible) {
+                panel.classList.add('visible');
+                panel.classList.remove('collapsed');
+            } else {
+                panel.classList.remove('visible');
+            }
+        }
     }
 
     // --- 7. Attach Event Listeners ---
@@ -308,7 +326,9 @@
 
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
-                panel.classList.add('collapsed');
+                settings.uiVisible = false;
+                saveSettings();
+                updateUI();
             });
         }
 
@@ -361,17 +381,34 @@
         observer.observe(document.body);
     }
 
+    // --- 8. Setup Hotkey (Shift + S to toggle settings panel) ---
+    function setupHotkey() {
+        document.addEventListener('keydown', (e) => {
+            // Shift + S to toggle settings panel
+            if (e.shiftKey && e.key === 'S') {
+                settings.uiVisible = !settings.uiVisible;
+                saveSettings();
+                updateUI();
+            }
+        });
+    }
+
     // --- Initialize ---
     function init() {
         injectContainerCSS();
         setupResizeObserver();
+        setupHotkey();
         updateContainerWidth();
 
         // Create UI when DOM is ready
         if (document.body) {
             createUIPanel();
+            updateUI();
         } else {
-            document.addEventListener('DOMContentLoaded', createUIPanel);
+            document.addEventListener('DOMContentLoaded', () => {
+                createUIPanel();
+                updateUI();
+            });
         }
     }
 
