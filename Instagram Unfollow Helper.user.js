@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Instagram Unfollow Helper
 // @namespace    https://deva-ig-unfollow-helper
-// @version      1.3
+// @version      1.4
 // @description  Safely unfollow with delays.
 // @author       deva-hari
 // @match        https://www.instagram.com/*
