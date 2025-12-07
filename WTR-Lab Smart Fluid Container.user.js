@@ -205,7 +205,20 @@
 
     // --- 1. Inject Base CSS using CSS Variables ---
     function injectContainerCSS() {
-        if (document.getElementById('wtr-container-css')) return; // Prevent duplicates
+        let styleEl = document.getElementById('wtr-container-css');
+        
+        if (!settings.enabled) {
+            // Remove the style element when disabled
+            if (styleEl) {
+                styleEl.remove();
+            }
+            return;
+        }
+
+        // Remove old style if it exists (in case settings changed)
+        if (styleEl) {
+            styleEl.remove();
+        }
 
         const cssOverride = `
             @media (min-width: ${settings.minTriggerWidth}px) {
@@ -426,7 +439,7 @@
         }
 
         // Register menu command for Tampermonkey dashboard
-        GM_registerMenuCommand('⚙️ Settings', () => {
+        GM_registerMenuCommand('Settings', () => {
             const panelEl = document.getElementById('wtr-smart-container-panel');
             if (panelEl) {
                 settings.uiVisible = !settings.uiVisible;
