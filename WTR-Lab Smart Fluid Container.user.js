@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTR-Lab Smart Fluid Container
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @description  Calculates device width dynamically and overrides Bootstrap static steps with configurable UI
 // @author       deva-hari
 // @match        https://wtr-lab.com/*
