@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Instagram Unfollow Helper
 // @namespace    https://deva-ig-unfollow-helper
-// @version      1.5
+// @version      1.6
 // @description  Safely unfollow with delays.
 // @author       deva-hari
 // @match        https://www.instagram.com/*
@@ -468,7 +468,7 @@
     }
 
     // Register menu command for Tampermonkey dashboard
-    GM_registerMenuCommand('⚙️ Settings', () => {
+    GM_registerMenuCommand('Settings', () => {
       if (panelEl) {
         panelEl.style.display = panelEl.style.display === 'none' ? 'block' : 'none';
       }

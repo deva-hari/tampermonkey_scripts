@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTR-Lab Smart Fluid Container
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @description  Calculates device width dynamically and overrides Bootstrap static steps with configurable UI
 // @author       deva-hari
 // @match        https://wtr-lab.com/*
@@ -32,17 +32,17 @@
         uiVisible: GM_getValue(STORAGE_KEY + '_uiVisible', false)
     };
 
-    // --- UI Styles ---
+    // --- UI Styles (Dark Mode) ---
     const uiStyles = `
         #wtr-smart-container-panel {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: white;
-            border: 2px solid #333;
+            background: #1e1e1e;
+            border: 2px solid #444;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             z-index: 10000;
             font-family: Arial, sans-serif;
             min-width: 280px;
@@ -68,6 +68,7 @@
             margin-bottom: 15px;
             font-weight: bold;
             font-size: 16px;
+            color: #fff;
         }
 
         .wtr-close-btn {
@@ -75,7 +76,7 @@
             border: none;
             font-size: 20px;
             cursor: pointer;
-            color: #333;
+            color: #aaa;
             padding: 0;
             width: 30px;
             height: 30px;
@@ -85,8 +86,9 @@
         }
 
         .wtr-close-btn:hover {
-            background-color: #f0f0f0;
+            background-color: #333;
             border-radius: 4px;
+            color: #fff;
         }
 
         .wtr-toggle-btn {
@@ -107,7 +109,7 @@
         }
 
         .wtr-toggle-btn.disabled {
-            background: #ccc;
+            background: #666;
         }
 
         .wtr-setting-group {
@@ -119,25 +121,34 @@
             font-weight: bold;
             margin-bottom: 5px;
             font-size: 14px;
-            color: #333;
+            color: #e0e0e0;
         }
 
         .wtr-setting-input {
             width: 100%;
             padding: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid #444;
             border-radius: 4px;
             box-sizing: border-box;
             font-size: 14px;
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+
+        .wtr-setting-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
         }
 
         .wtr-setting-value {
             display: inline-block;
-            background: #f0f0f0;
+            background: #333;
             padding: 2px 6px;
             border-radius: 3px;
             margin-left: 5px;
             font-weight: normal;
+            color: #4CAF50;
         }
 
         .wtr-reset-btn {
@@ -171,7 +182,7 @@
             border: none;
             font-size: 24px;
             cursor: pointer;
-            color: #333;
+            color: #aaa;
             padding: 0;
             width: 40px;
             height: 40px;
@@ -185,8 +196,9 @@
         }
 
         .wtr-collapse-btn:hover {
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: #333;
             border-radius: 4px;
+            color: #fff;
         }
     `;
     GM_addStyle(uiStyles);
@@ -415,8 +427,11 @@
 
         // Register menu command for Tampermonkey dashboard
         GM_registerMenuCommand('⚙️ Settings', () => {
-            if (panel) {
-                panel.classList.toggle('visible');
+            const panelEl = document.getElementById('wtr-smart-container-panel');
+            if (panelEl) {
+                settings.uiVisible = !settings.uiVisible;
+                saveSettings();
+                updateUI();
             }
         });
     }
