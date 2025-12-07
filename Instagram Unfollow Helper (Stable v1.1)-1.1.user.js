@@ -9,6 +9,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_notification
+// @downloadURL  https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/Instagram%20Unfollow%20Helper%20(Stable%20v1.1)-1.1.user.js
+// @updateURL    https://raw.githubusercontent.com/deva-hari/tampermonkey_scripts/main/Instagram%20Unfollow%20Helper%20(Stable%20v1.1)-1.1.user.js
 // ==/UserScript==
 
 (function () {
