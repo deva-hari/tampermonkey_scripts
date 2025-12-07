@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Instagram Unfollow Helper
 // @namespace    https://deva-ig-unfollow-helper
-// @version      1.2
+// @version      1.3
 // @description  Safely unfollow with delays.
 // @author       deva-hari
 // @match        https://www.instagram.com/*
@@ -89,6 +89,20 @@
     #ig-unfollow-start { background:#28a745; color:#fff; }
     #ig-unfollow-stop { background:#ff4444; color:#fff; }
     #ig-unfollow-testscroll { background:#555; color:#fff; }
+    /* Warning / instructions */
+    #ig-unfollow-warn {
+      background:#b45309; color:#fff; padding:8px; border-radius:8px;
+      font-size:12px; margin-bottom:8px; line-height:1.2;
+    }
+    #ig-unfollow-instructions {
+      background:rgba(255,255,255,0.03); padding:8px; border-radius:8px;
+      font-size:11px; color:#ddd; margin-bottom:8px;
+    }
+    /* Collapsible "more details" */
+    .iguf-more { margin-bottom:8px; }
+    .iguf-more-toggle { background:transparent; border:1px solid rgba(255,255,255,0.06); color:#fff; padding:6px 8px; border-radius:8px; cursor:pointer; }
+    .iguf-more-content { margin-top:6px; display:none; font-size:11px; color:#ddd; background:rgba(255,255,255,0.02); padding:8px; border-radius:8px; }
+    .iguf-more.open .iguf-more-content { display:block; }
   `);
 
   // ========= DOM HELPERS =========
@@ -157,6 +171,38 @@
 
     panelEl.innerHTML = `
       <h2>Unfollow Helper <span>⚠️</span></h2>
+
+      <div id="ig-unfollow-warn">Warning: Automating unfollows may trigger Instagram rate limits or temporary blocks. Start with small limits and use <strong>Dry-run</strong> to test.</div>
+
+      <div id="ig-unfollow-instructions">
+        <strong>Quick Instructions:</strong>
+        <ul style="margin:6px 0 0 16px; padding:0;">
+          <li>Open your <em>Following</em> list on Instagram first.</li>
+          <li>Use <em>Test scroll</em> to confirm scrolling works for the dialog.</li>
+          <li>Enable <em>Dry-run</em> and low limits for initial tests.</li>
+        </ul>
+      </div>
+
+      <div class="iguf-more" id="iguf-more">
+        <button class="iguf-more-toggle" id="iguf-more-toggle">More details ▾</button>
+        <div class="iguf-more-content" id="iguf-more-content">
+          <strong>Detailed Warnings & Recommendations</strong>
+          <ul style="margin:6px 0 0 16px; padding:0;">
+            <li>Avoid unfollowing large numbers at once — keep runs under 50.</li>
+            <li>Prefer randomized delays: set min/max delays with some spread.</li>
+            <li>Start with <em>Dry-run</em> to verify selection and scrolling behavior.</li>
+            <li>If Instagram prompts for verification, stop immediately and wait before retrying.</li>
+            <li>Use the interval setting to space runs over time (recommended 15–60 minutes).</li>
+            <li>If blocked, wait 24–72 hours before resuming; do not keep retrying.</li>
+          </ul>
+          <hr style="border:none;border-top:1px solid rgba(255,255,255,0.04);margin:8px 0;">
+          <strong>Recovery Tips</strong>
+          <ul style="margin:6px 0 0 16px; padding:0;">
+            <li>Log out and back in, or clear cookies if UI behaves oddly.</li>
+            <li>Try a single manual unfollow to check prompts before continuing.</li>
+          </ul>
+        </div>
+      </div>
 
       <div class="iguf-row">
         <label>Unfollow per run</label>
@@ -244,6 +290,30 @@
     startBtn.onclick = startSession;
     stopBtn.onclick = stopSession;
     testScrollBtn.onclick = handleTestScroll;
+
+    // Collapsible "More details" toggle (persisted)
+    try {
+      const moreEl = panelEl.querySelector('#iguf-more');
+      const moreToggle = panelEl.querySelector('#iguf-more-toggle');
+      const moreContent = panelEl.querySelector('#iguf-more-content');
+      const showMore = !!GM_getValue('showMore', false);
+      if (showMore) {
+        moreEl.classList.add('open');
+        moreContent.style.display = 'block';
+        moreToggle.innerText = 'Less details ▴';
+      } else {
+        moreContent.style.display = 'none';
+        moreToggle.innerText = 'More details ▾';
+      }
+      moreToggle.onclick = () => {
+        const open = moreEl.classList.toggle('open');
+        moreContent.style.display = open ? 'block' : 'none';
+        moreToggle.innerText = open ? 'Less details ▴' : 'More details ▾';
+        GM_setValue('showMore', !!open);
+      };
+    } catch (e) {
+      // ignore if elements not present or GM_* not available
+    }
   }
 
   // ========= STATUS =========
