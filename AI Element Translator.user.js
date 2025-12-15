@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Element Translator
 // @namespace    https://deva.ai/element-translator
-// @version      0.3
+// @version      0.4
 // @description  Pick elements on a page, send their text to a configurable AI (OpenAI-compatible) for translation, and replace in-place.
 // @author       you
 // @match        *://*/*
@@ -86,56 +86,71 @@
         temperature: 0.2,
         sourceLang: 'auto',
         targetLang: 'English',
-       systemPrompt: (
-    'You are an elite literary translation engine specialized in long-form web-novels ' +
-    '(xianxia, xuanhuan, historical, slice-of-life, romance, modern urban, etc.).\n' +
-    'Translate the user text from SOURCE_LANG to TARGET_LANG with publication-quality prose.\n' +
-    '\n' +
-    'Style requirements:\n' +
-    '- Produce natural, immersive, novel-grade prose suitable for serialized web fiction.\n' +
-    '- Preserve the author’s voice, narrative rhythm, and emotional weight.\n' +
-    '- Maintain show-don’t-tell phrasing where present.\n' +
-    '- Avoid literal, stiff, or mechanical translations.\n' +
-    '- Do not simplify complex emotions, social dynamics, or power hierarchies.\n' +
-    '\n' +
-    'Narrative fidelity rules:\n' +
-    '- Do not add, remove, summarize, censor, or reinterpret content.\n' +
-    '- Preserve pacing, sentence-length intent, and dramatic beats.\n' +
-    '- Retain ambiguity when the original is ambiguous.\n' +
-    '- Keep internal monologue distinct from narration and dialogue.\n' +
-    '- Match emotional intensity precisely (irritation ≠ anger ≠ fury; affection ≠ infatuation ≠ obsession).\n' +
-    '\n' +
-    'Dialogue and character consistency:\n' +
-    '- Dialogue must sound natural in TARGET_LANG, not translated word-for-word.\n' +
-    '- Maintain consistent character voices across all lines.\n' +
-    '- Reflect social hierarchy, familiarity, and emotional distance through word choice.\n' +
-    '- Do not flatten sarcasm, teasing, or passive aggression.\n' +
-    '\n' +
-    'Cultural and linguistic handling:\n' +
-    '- Preserve idioms and metaphors where possible.\n' +
-    '- If a metaphor does not transfer, replace it with a functionally equivalent literary expression.\n' +
-    '- Handle honorifics and relationship terms (e.g., 妈, 娘, 哥, 姐, 师父) consistently and contextually.\n' +
-    '- Keep names, titles, cultivation terms, and ranks consistent; do not invent new terminology.\n' +
-    '- Do not insert explanations, footnotes, or glossaries.\n' +
-    '\n' +
-    'Input format:\n' +
-    '- The text is provided as multiple lines.\n' +
-    '- Each line starts with a marker like "__SEG_0__".\n' +
-    '\n' +
-    'Hard rules:\n' +
-    '- Keep the markers (e.g., "__SEG_0__") exactly unchanged.\n' +
-    '- Only translate the text after the marker on each line.\n' +
-    '- Preserve the exact number of lines and their original order.\n' +
-    '- Do not merge, split, reorder, or omit any lines.\n' +
-    '- Do NOT add explanations, comments, or extra text.\n' +
-    '\n' +
-    'Output format:\n' +
-    '- Each line must be output as "__SEG_N__ <translated text>".\n' +
-    '\n' +
-    'Quality bar:\n' +
-    '- The output should read as if it were originally written in TARGET_LANG and professionally edited.\n' +
-    '- The translation must be faithful enough that bilingual readers cannot detect loss of nuance.\n'
-)
+             systemPrompt: `You are an elite literary translation engine specialized in long-form web-novels
+(xianxia, xuanhuan, historical, slice-of-life, romance, modern urban, etc.).
+
+Task:
+Translate the user-provided text from SOURCE_LANG to TARGET_LANG with
+publication-quality prose.
+
+Core Style Requirements:
+- Produce natural, immersive, novel-grade prose suitable for serialized web fiction.
+- Preserve the author’s voice, narrative rhythm, and emotional weight.
+- Maintain show-don’t-tell phrasing where present.
+- Avoid literal, stiff, or mechanical translations.
+- Do not simplify complex emotions, social dynamics, or power hierarchies.
+
+Narrative Fidelity Rules:
+- Do not add, remove, summarize, censor, or reinterpret content.
+- Preserve pacing, sentence-length intent, and dramatic beats.
+- Retain ambiguity when the original is ambiguous.
+- Keep internal monologue distinct from narration and dialogue.
+- Match emotional intensity precisely:
+    irritation ≠ anger ≠ fury
+    affection ≠ infatuation ≠ obsession
+
+Dialogue & Character Consistency:
+- Dialogue must sound natural in TARGET_LANG, not translated.
+- Maintain character voice consistency across all lines.
+- Reflect social hierarchy, familiarity, and emotional distance through word choice.
+- Do not flatten sarcasm, teasing, or passive aggression.
+
+Cultural & Linguistic Handling:
+- Idioms & metaphors:
+    - Preserve metaphors where possible.
+    - If a metaphor does not transfer, replace it with a functionally equivalent
+        literary expression rather than a literal one.
+- Honorifics & relationship terms (e.g., 妈, 娘, 哥, 姐, 师父):
+    - Use consistent, context-appropriate equivalents.
+    - Do not mix multiple TARGET_LANG forms for the same role unless the original does.
+- Names, titles, cultivation terms, and ranks:
+    - Keep consistent throughout the text.
+    - Do not invent new terminology.
+- Do not insert explanations, footnotes, or glossaries.
+
+Input Format:
+- The input consists of multiple lines.
+- Each line begins with a unique marker in the format "__SEG_N__"
+    (for example, "__SEG_0__").
+
+Hard Constraints (Non-Negotiable):
+- Preserve each marker exactly as provided.
+- Translate only the text that appears after the marker on each line.
+- Maintain the exact number of lines and their original order.
+- Do not merge, split, reorder, or omit any lines.
+- Do not add any text outside the translated content.
+
+Output Format:
+Each output line must strictly follow this structure:
+__SEG_N__ <translated text>
+
+Quality Bar:
+- The output should read as if it were originally written in TARGET_LANG.
+- The prose should be suitable for publication in a web-novel.
+- The translation must remain faithful enough that bilingual readers cannot
+    detect loss of nuance or intent.
+
+Failure to meet any constraint is considered an incorrect translation.`
 
     };
 
@@ -153,6 +168,17 @@
 
     function saveSettings(settings) {
         GM_setValue(SETTINGS_KEY, JSON.stringify(settings));
+        // If panel is visible, update provider/model badges
+        try {
+            if (panelEl) {
+                const pb = panelEl.querySelector && panelEl.querySelector('#ai-provider-badge');
+                const mb = panelEl.querySelector && panelEl.querySelector('#ai-model-badge');
+                if (pb) pb.textContent = settings.provider || '';
+                if (mb) mb.textContent = settings.model || '';
+            }
+        } catch (e) {
+            console.warn('[AI Translator] Failed to update badges', e);
+        }
     }
 
     function getCurrentDomain() {
@@ -500,6 +526,47 @@
         .ai-translator-toggle-row input {
             margin: 0;
         }
+        /* New grid layout */
+        .ai-translator-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+        .ai-translator-section {
+            padding: 6px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .ai-translator-controls {
+            display:flex;
+            gap:6px;
+            flex-wrap:wrap;
+        }
+        .ai-translator-controls .ai-translator-btn {
+            flex:1 1 48%;
+            padding:8px 6px;
+            font-size:12px;
+        }
+        .ai-translator-small-row {
+            display:flex;
+            gap:6px;
+            align-items:center;
+            justify-content:space-between;
+        }
+        .ai-translator-footer {
+            display:flex;
+            gap:6px;
+            align-items:center;
+            justify-content:space-between;
+            margin-top:6px;
+            font-size:11px;
+            color:#ccc;
+        }
+        .ai-translator-mini {
+            font-size:11px;
+            opacity:0.85;
+        }
     `);
 
     // ---------- Panel & Config UI ----------
@@ -514,54 +581,75 @@
         panelEl.className = 'ai-translator-panel';
 
         panelEl.innerHTML = `
-            <div class="ai-translator-header">
-                <div class="ai-translator-title">AI Translator</div>
-                <button class="ai-translator-close" title="Hide panel">×</button>
+            <div class="ai-translator-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div style="display:flex;flex-direction:column;">
+                    <div class="ai-translator-title">AI Translator</div>
+                    <div class="ai-translator-mini">Provider: <span id="ai-provider-badge">${escapeHtml((settings.provider||'groq'))}</span></div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="ai-translator-small-btn" id="ai-translator-help-btn">?</button>
+                    <button class="ai-translator-close" title="Hide panel">×</button>
+                </div>
             </div>
 
-            <div class="ai-translator-row ai-translator-toggle-row">
-                <input type="checkbox" id="ai-translator-enabled">
-                <label for="ai-translator-enabled">Enabled</label>
-            </div>
+            <div class="ai-translator-grid">
+                <div class="ai-translator-section">
+                    <div class="ai-translator-small-row">
+                        <label style="display:flex;align-items:center;gap:6px;margin:0;"><input type="checkbox" id="ai-translator-enabled"> Enabled</label>
+                        <div class="ai-translator-mini">Model: <span id="ai-model-badge">${escapeHtml(settings.model||'')}</span></div>
+                    </div>
+                    <div style="margin-top:8px;display:flex;gap:6px;">
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:12px;margin-bottom:4px;">Source</label>
+                            <select id="ai-translator-source" class="ai-translator-select">
+                                <option value="auto">Auto-detect</option>
+                                <option value="English">English</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Korean">Korean</option>
+                                <option value="Spanish">Spanish</option>
+                                <option value="French">French</option>
+                                <option value="German">German</option>
+                                <option value="Hindi">Hindi</option>
+                                <option value="Tamil">Tamil</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:12px;margin-bottom:4px;">Target</label>
+                            <select id="ai-translator-target" class="ai-translator-select">
+                                <option value="English">English</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Korean">Korean</option>
+                                <option value="Spanish">Spanish</option>
+                                <option value="French">French</option>
+                                <option value="German">German</option>
+                                <option value="Hindi">Hindi</option>
+                                <option value="Tamil">Tamil</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-            <div class="ai-translator-row">
-                <label>Source → Target</label>
-                <select id="ai-translator-source" class="ai-translator-select">
-                    <option value="auto">Auto-detect</option>
-                    <option value="English">English</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Tamil">Tamil</option>
-                </select>
-                <select id="ai-translator-target" class="ai-translator-select" style="margin-top:3px;">
-                    <option value="English">English</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Tamil">Tamil</option>
-                </select>
-            </div>
+                <div class="ai-translator-section ai-translator-controls">
+                    <button class="ai-translator-btn" id="ai-translator-pick-btn">Pick Element</button>
+                    <button class="ai-translator-btn" id="ai-translator-fullpage-btn" style="background:#6bbf73;">Translate Full Page</button>
+                    <button class="ai-translator-btn" id="ai-translator-config-btn" style="background:#4a90e2;">API & Prompt</button>
+                    <button class="ai-translator-btn" id="ai-view-saved-btn" style="background:#666;">View Saved</button>
+                </div>
 
-            <div class="ai-translator-row">
-                <button class="ai-translator-small-btn" id="ai-translator-config-btn">⚙ API & Prompt</button>
-                <button class="ai-translator-small-btn" id="ai-translator-help-btn">?</button>
+                <div class="ai-translator-section ai-translator-small-row">
+                    <div style="display:flex;gap:6px;">
+                        <button class="ai-translator-small-btn" id="ai-translator-reload-btn">↻ Reload</button>
+                        <button class="ai-translator-small-btn" id="ai-clear-saved-btn">Clear Saved</button>
+                        <button class="ai-translator-small-btn" id="ai-clear-cache-btn">Clear Cache</button>
+                    </div>
+                    <div class="ai-translator-footer">
+                        <div class="ai-translator-mini" id="ai-translator-status">Ready.</div>
+                        <div class="ai-translator-mini">v0.3</div>
+                    </div>
+                </div>
             </div>
-
-            <div style="display:flex;gap:6px;">
-                <button class="ai-translator-btn" id="ai-translator-pick-btn" style="flex:1;">Pick element to translate</button>
-                <button class="ai-translator-btn" id="ai-translator-fullpage-btn" style="flex:1;background:#6bbf73;">Translate Full Page</button>
-            </div>
-
-            <div class="ai-translator-status" id="ai-translator-status">Ready.</div>
         `;
 
         document.body.appendChild(panelEl);
@@ -643,6 +731,62 @@
                 '{ model, messages, temperature } like OpenAI /chat/completions.'
             );
         });
+
+        // Extra controls added in redesigned UI
+        const viewSavedBtn = panelEl.querySelector('#ai-view-saved-btn');
+        const clearCacheBtn = panelEl.querySelector('#ai-clear-cache-btn');
+        const clearSavedBtn = panelEl.querySelector('#ai-clear-saved-btn');
+        const reloadBtn = panelEl.querySelector('#ai-translator-reload-btn');
+        const providerBadge = panelEl.querySelector('#ai-provider-badge');
+        const modelBadge = panelEl.querySelector('#ai-model-badge');
+
+        function updateBadges() {
+            if (providerBadge) providerBadge.textContent = settings.provider || '';
+            if (modelBadge) modelBadge.textContent = settings.model || '';
+        }
+
+        updateBadges();
+
+        if (viewSavedBtn) {
+            viewSavedBtn.addEventListener('click', () => {
+                const saved = loadSavedElements();
+                const keys = Object.keys(saved || {});
+                if (!keys.length) {
+                    alert('No saved elements.');
+                    return;
+                }
+                let msg = 'Saved elements:\n\n';
+                keys.forEach(d => {
+                    const s = saved[d];
+                    msg += `${d}: selector=${s.selector||''}, xpath=${s.xpath||''}, snippet=${(s.snippet||'').slice(0,80)}\nlast: ${new Date(s.timestamp).toLocaleString()}\n\n`;
+                });
+                alert(msg);
+            });
+        }
+
+        if (clearCacheBtn) {
+            clearCacheBtn.addEventListener('click', () => {
+                if (confirm('Clear translation cache?')) {
+                    clearTranslationCache();
+                    setStatus('Cache cleared.');
+                }
+            });
+        }
+
+        if (clearSavedBtn) {
+            clearSavedBtn.addEventListener('click', () => {
+                if (confirm('Clear all saved elements?')) {
+                    saveSavedElements({});
+                    setStatus('Saved elements cleared.');
+                }
+            });
+        }
+
+        if (reloadBtn) {
+            reloadBtn.addEventListener('click', () => {
+                location.reload();
+            });
+        }
     }
 
     function showPanel() {
