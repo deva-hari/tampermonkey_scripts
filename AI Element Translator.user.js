@@ -646,7 +646,7 @@ Failure to meet any constraint is considered an incorrect translation.`
                     </div>
                     <div class="ai-translator-footer">
                         <div class="ai-translator-mini" id="ai-translator-status">Ready.</div>
-                        <div class="ai-translator-mini">v0.3</div>
+                        <div class="ai-translator-mini">v0.4</div>
                     </div>
                 </div>
             </div>
