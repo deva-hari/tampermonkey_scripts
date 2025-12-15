@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Element Translator
 // @namespace    https://deva.ai/element-translator
-// @version      0.1
+// @version      0.2
 // @description  Pick elements on a page, send their text to a configurable AI (OpenAI-compatible) for translation, and replace in-place.
 // @author       you
 // @match        *://*/*
@@ -25,11 +25,63 @@
     const SETTINGS_KEY = 'ai_element_translator_settings_v1';
     const SAVED_ELEMENTS_KEY = 'ai_element_translator_saved_elements_v1';
 
+    // Provider configurations
+    const PROVIDERS = {
+        groq: {
+            name: 'Groq',
+            apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
+            models: [
+                'llama-3.1-8b-instant',
+                'llama-3.1-70b-versatile',
+                'mixtral-8x7b-32768',
+                'gemma-7b-it',
+                'openai/gpt-oss-120b',
+                'openai/gpt-oss-20b',
+                'moonshotai/kimi-k2-instruct',
+                'moonshotai/kimi-k2-instruct-0905'
+            ]
+        },
+        openrouter: {
+            name: 'OpenRouter',
+            apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+            models: [
+                'meta-llama/llama-2-7b-chat',
+                'meta-llama/llama-2-13b-chat',
+                'mistralai/mistral-7b-instruct',
+                'nousresearch/nous-hermes-2-mixtral-8x7b-dpo',
+                'openai/gpt-3.5-turbo',
+                'openai/gpt-oss-20b:free',
+                'amazon/nova-2-lite-v1:free',
+                'qwen/qwen3-4b:free',
+                'moonshotai/kimi-k2:free'
+            ]
+        },
+        gemini: {
+            name: 'Google Gemini',
+            apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+            models: [
+                'gemini-3-pro-preview',
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-preview-09-2025',
+                'gemini-2.5-flash-lite',
+                'gemini-2.5-flash-lite-preview-09-2025'
+
+            ],
+            note: 'Use your Google API key'
+        },
+        custom: {
+            name: 'Custom',
+            apiUrl: '',
+            models: []
+        }
+    };
+
     const DEFAULT_SETTINGS = {
         enabled: true,
-        apiUrl: 'https://api.groq.com/openai/v1/chat/completions', // Put your endpoint here
-        apiKey: '', // Put your API key here
-        model: 'llama-3.1-8b-instant', // or groq/gemini/openrouter model etc
+        provider: 'groq',
+        apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
+        apiKey: '',
+        model: 'llama-3.1-8b-instant',
         temperature: 0.2,
         sourceLang: 'auto',
         targetLang: 'English',
@@ -522,21 +574,46 @@
         const modal = document.createElement('div');
         modal.className = 'ai-translator-config-modal';
 
+        const currentProvider = settings.provider || 'groq';
+        const providerConfig = PROVIDERS[currentProvider];
+
         modal.innerHTML = `
             <h2>API & Prompt Settings</h2>
             <p style="font-size:11px;opacity:0.8;">
-                Use any AI that exposes an OpenAI-compatible chat/completions endpoint.
-                Example: https://api.openai.com/v1/chat/completions
+                Select an AI provider or use a custom endpoint.
             </p>
 
+            <label style="font-weight:600;margin-top:10px;">AI Provider</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:normal;">
+                    <input type="radio" name="ai-provider" value="groq" ${currentProvider === 'groq' ? 'checked' : ''}>
+                    Groq
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:normal;">
+                    <input type="radio" name="ai-provider" value="openrouter" ${currentProvider === 'openrouter' ? 'checked' : ''}>
+                    OpenRouter
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:normal;">
+                    <input type="radio" name="ai-provider" value="gemini" ${currentProvider === 'gemini' ? 'checked' : ''}>
+                    Gemini
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:normal;">
+                    <input type="radio" name="ai-provider" value="custom" ${currentProvider === 'custom' ? 'checked' : ''}>
+                    Custom
+                </label>
+            </div>
+
             <label>API URL (chat/completions endpoint)</label>
-            <input type="text" id="ai-config-apiurl" value="${escapeHtml(settings.apiUrl || '')}">
+            <input type="text" id="ai-config-apiurl" value="${escapeHtml(settings.apiUrl || '')}" ${currentProvider !== 'custom' ? 'readonly' : ''}>
+            <p style="font-size:10px;opacity:0.6;margin:2px 0 8px 0;" id="ai-provider-note"></p>
 
             <label>API Key (stored locally)</label>
             <input type="password" id="ai-config-apikey" value="${escapeHtml(settings.apiKey || '')}">
 
             <label>Model</label>
-            <input type="text" id="ai-config-model" value="${escapeHtml(settings.model || '')}">
+            <select id="ai-config-model" class="ai-translator-select">
+                ${providerConfig.models.map(m => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
 
             <label>Temperature</label>
             <input type="number" step="0.01" min="0" max="2" id="ai-config-temp" value="${Number(settings.temperature || 0.2)}">
@@ -553,6 +630,39 @@
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
+        // Update provider UI when radio changes
+        const providerRadios = modal.querySelectorAll('input[name="ai-provider"]');
+        const apiUrlInput = modal.querySelector('#ai-config-apiurl');
+        const modelSelect = modal.querySelector('#ai-config-model');
+        const noteEl = modal.querySelector('#ai-provider-note');
+
+        function updateProviderUI() {
+            const selected = modal.querySelector('input[name="ai-provider"]:checked').value;
+            const provider = PROVIDERS[selected];
+            
+            apiUrlInput.value = provider.apiUrl || '';
+            apiUrlInput.readOnly = selected !== 'custom';
+            
+            // Update model dropdown
+            modelSelect.innerHTML = provider.models
+                .map(m => `<option value="${m}">${m}</option>`)
+                .join('');
+            if (provider.models.length > 0) {
+                modelSelect.value = provider.models[0];
+            }
+            
+            // Show provider note if available
+            if (provider.note) {
+                noteEl.textContent = provider.note;
+            } else {
+                noteEl.textContent = '';
+            }
+        }
+
+        providerRadios.forEach(radio => {
+            radio.addEventListener('change', updateProviderUI);
+        });
+
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 document.body.removeChild(overlay);
@@ -564,6 +674,7 @@
         });
 
         modal.querySelector('.ai-translator-config-save').addEventListener('click', () => {
+            const provider = modal.querySelector('input[name="ai-provider"]:checked').value;
             const apiUrl = modal.querySelector('#ai-config-apiurl').value.trim();
             const apiKey = modal.querySelector('#ai-config-apikey').value.trim();
             const model = modal.querySelector('#ai-config-model').value.trim();
@@ -575,6 +686,7 @@
                 return;
             }
 
+            settings.provider = provider;
             settings.apiUrl = apiUrl;
             settings.apiKey = apiKey;
             settings.model = model;
