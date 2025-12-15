@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Element Translator
 // @namespace    https://deva.ai/element-translator
-// @version      0.2
+// @version      0.3
 // @description  Pick elements on a page, send their text to a configurable AI (OpenAI-compatible) for translation, and replace in-place.
 // @author       you
 // @match        *://*/*
@@ -24,6 +24,7 @@
 
     const SETTINGS_KEY = 'ai_element_translator_settings_v1';
     const SAVED_ELEMENTS_KEY = 'ai_element_translator_saved_elements_v1';
+    const TRANSLATION_CACHE_KEY = 'ai_element_translator_cache_v1';
 
     // Provider configurations
     const PROVIDERS = {
@@ -85,16 +86,57 @@
         temperature: 0.2,
         sourceLang: 'auto',
         targetLang: 'English',
-        systemPrompt: (
-            'You are a translation engine.\n' +
-            'Translate the user text from SOURCE_LANG to TARGET_LANG.\n' +
-            'The text is provided as multiple lines. Each line starts with a marker like "__SEG_0__".\n' +
-            'Rules:\n' +
-            '- Keep the markers (e.g., "__SEG_0__") exactly unchanged.\n' +
-            '- Only translate the text after the marker on each line.\n' +
-            '- Preserve the number of lines and their order.\n' +
-            '- Do NOT add explanations, comments, or extra text.\n'
-        )
+       systemPrompt: (
+    'You are an elite literary translation engine specialized in long-form web-novels ' +
+    '(xianxia, xuanhuan, historical, slice-of-life, romance, modern urban, etc.).\n' +
+    'Translate the user text from SOURCE_LANG to TARGET_LANG with publication-quality prose.\n' +
+    '\n' +
+    'Style requirements:\n' +
+    '- Produce natural, immersive, novel-grade prose suitable for serialized web fiction.\n' +
+    '- Preserve the author’s voice, narrative rhythm, and emotional weight.\n' +
+    '- Maintain show-don’t-tell phrasing where present.\n' +
+    '- Avoid literal, stiff, or mechanical translations.\n' +
+    '- Do not simplify complex emotions, social dynamics, or power hierarchies.\n' +
+    '\n' +
+    'Narrative fidelity rules:\n' +
+    '- Do not add, remove, summarize, censor, or reinterpret content.\n' +
+    '- Preserve pacing, sentence-length intent, and dramatic beats.\n' +
+    '- Retain ambiguity when the original is ambiguous.\n' +
+    '- Keep internal monologue distinct from narration and dialogue.\n' +
+    '- Match emotional intensity precisely (irritation ≠ anger ≠ fury; affection ≠ infatuation ≠ obsession).\n' +
+    '\n' +
+    'Dialogue and character consistency:\n' +
+    '- Dialogue must sound natural in TARGET_LANG, not translated word-for-word.\n' +
+    '- Maintain consistent character voices across all lines.\n' +
+    '- Reflect social hierarchy, familiarity, and emotional distance through word choice.\n' +
+    '- Do not flatten sarcasm, teasing, or passive aggression.\n' +
+    '\n' +
+    'Cultural and linguistic handling:\n' +
+    '- Preserve idioms and metaphors where possible.\n' +
+    '- If a metaphor does not transfer, replace it with a functionally equivalent literary expression.\n' +
+    '- Handle honorifics and relationship terms (e.g., 妈, 娘, 哥, 姐, 师父) consistently and contextually.\n' +
+    '- Keep names, titles, cultivation terms, and ranks consistent; do not invent new terminology.\n' +
+    '- Do not insert explanations, footnotes, or glossaries.\n' +
+    '\n' +
+    'Input format:\n' +
+    '- The text is provided as multiple lines.\n' +
+    '- Each line starts with a marker like "__SEG_0__".\n' +
+    '\n' +
+    'Hard rules:\n' +
+    '- Keep the markers (e.g., "__SEG_0__") exactly unchanged.\n' +
+    '- Only translate the text after the marker on each line.\n' +
+    '- Preserve the exact number of lines and their original order.\n' +
+    '- Do not merge, split, reorder, or omit any lines.\n' +
+    '- Do NOT add explanations, comments, or extra text.\n' +
+    '\n' +
+    'Output format:\n' +
+    '- Each line must be output as "__SEG_N__ <translated text>".\n' +
+    '\n' +
+    'Quality bar:\n' +
+    '- The output should read as if it were originally written in TARGET_LANG and professionally edited.\n' +
+    '- The translation must be faithful enough that bilingual readers cannot detect loss of nuance.\n'
+)
+
     };
 
     function loadSettings() {
@@ -129,6 +171,33 @@
         } catch (e) {
             console.error('[AI Translator] Failed to load saved elements:', e);
             return {};
+        }
+    }
+
+    function loadTranslationCache() {
+        try {
+            const raw = GM_getValue(TRANSLATION_CACHE_KEY, null);
+            if (!raw) return {};
+            return JSON.parse(raw);
+        } catch (e) {
+            console.error('[AI Translator] Failed to load translation cache:', e);
+            return {};
+        }
+    }
+
+    function saveTranslationCache(cache) {
+        try {
+            GM_setValue(TRANSLATION_CACHE_KEY, JSON.stringify(cache));
+        } catch (e) {
+            console.error('[AI Translator] Failed to save translation cache:', e);
+        }
+    }
+
+    function clearTranslationCache() {
+        try {
+            GM_setValue(TRANSLATION_CACHE_KEY, JSON.stringify({}));
+        } catch (e) {
+            console.error('[AI Translator] Failed to clear translation cache:', e);
         }
     }
 
@@ -487,7 +556,10 @@
                 <button class="ai-translator-small-btn" id="ai-translator-help-btn">?</button>
             </div>
 
-            <button class="ai-translator-btn" id="ai-translator-pick-btn">Pick element to translate</button>
+            <div style="display:flex;gap:6px;">
+                <button class="ai-translator-btn" id="ai-translator-pick-btn" style="flex:1;">Pick element to translate</button>
+                <button class="ai-translator-btn" id="ai-translator-fullpage-btn" style="flex:1;background:#6bbf73;">Translate Full Page</button>
+            </div>
 
             <div class="ai-translator-status" id="ai-translator-status">Ready.</div>
         `;
@@ -499,6 +571,7 @@
         const targetSelect = panelEl.querySelector('#ai-translator-target');
         const closeBtn = panelEl.querySelector('.ai-translator-close');
         const pickBtn = panelEl.querySelector('#ai-translator-pick-btn');
+        const fullPageBtn = panelEl.querySelector('#ai-translator-fullpage-btn');
         const configBtn = panelEl.querySelector('#ai-translator-config-btn');
         const helpBtn = panelEl.querySelector('#ai-translator-help-btn');
         statusEl = panelEl.querySelector('#ai-translator-status');
@@ -538,6 +611,21 @@
                 return;
             }
             startElementPicker();
+        });
+
+        fullPageBtn.addEventListener('click', () => {
+            if (!settings.enabled) {
+                setStatus('Enable the translator first.');
+                return;
+            }
+            if (!settings.apiUrl || !settings.apiKey || !settings.model) {
+                setStatus('Configure API URL, key, and model first.');
+                openConfigModal();
+                return;
+            }
+            if (confirm('Translate the visible text on the entire page? This will modify content in-place.')) {
+                translateElement(document.body);
+            }
         });
 
         configBtn.addEventListener('click', () => {
@@ -846,7 +934,19 @@
             {
                 acceptNode(node) {
                     if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-                    const text = node.nodeValue.trim();
+                    const parent = node.parentElement;
+                    if (!parent) return NodeFilter.FILTER_REJECT;
+                    const tag = parent.tagName && parent.tagName.toUpperCase();
+                    // Skip script/style/noscript and inputs
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA' || tag === 'INPUT') return NodeFilter.FILTER_REJECT;
+                    // Skip hidden elements
+                    try {
+                        const cs = window.getComputedStyle(parent);
+                        if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0')) return NodeFilter.FILTER_REJECT;
+                    } catch (e) {
+                        // ignore
+                    }
+                    const text = node.nodeValue.replace(/\s+/g, ' ').trim();
                     if (!text) return NodeFilter.FILTER_REJECT;
                     return NodeFilter.FILTER_ACCEPT;
                 }
@@ -901,6 +1001,17 @@
 
     function callTranslationAPI(segmentedText) {
         return new Promise((resolve, reject) => {
+            // Check cache first
+            try {
+                const cache = loadTranslationCache();
+                if (cache && cache[segmentedText]) {
+                    console.log('[AI Translator] Using cached translation');
+                    resolve(cache[segmentedText]);
+                    return;
+                }
+            } catch (e) {
+                console.warn('[AI Translator] Cache check failed', e);
+            }
             const src = settings.sourceLang || 'auto';
             const tgt = settings.targetLang || 'English';
             const sysPrompt = (settings.systemPrompt || DEFAULT_SETTINGS.systemPrompt)
@@ -937,7 +1048,16 @@
                             reject(new Error('No content in response.'));
                             return;
                         }
-                        resolve(content.trim());
+                        const trimmed = content.trim();
+                        // Save to cache
+                        try {
+                            const cache = loadTranslationCache();
+                            cache[segmentedText] = trimmed;
+                            saveTranslationCache(cache);
+                        } catch (e) {
+                            console.warn('[AI Translator] Failed to save translation to cache', e);
+                        }
+                        resolve(trimmed);
                     } catch (err) {
                         console.error('[AI Translator] Response parse error', err);
                         reject(err);
@@ -1036,6 +1156,13 @@
         if (confirm('Clear all saved translation targets for all domains?')) {
             saveSavedElements({});
             alert('All saved elements cleared.');
+        }
+    });
+
+    GM_registerMenuCommand('Clear Translation Cache (AI Translator)', () => {
+        if (confirm('Clear the translation cache?')) {
+            clearTranslationCache();
+            alert('Translation cache cleared.');
         }
     });
 
