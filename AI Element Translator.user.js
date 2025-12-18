@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Element Translator
 // @namespace    https://deva.ai/element-translator
-// @version      0.4
+// @version      0.5
 // @description  Pick elements on a page, send their text to a configurable AI (OpenAI-compatible) for translation, and replace in-place.
 // @author       you
 // @match        *://*/*
@@ -71,9 +71,14 @@
             note: 'Use your Google API key'
         },
         custom: {
-            name: 'Custom',
-            apiUrl: '',
-            models: []
+            name: 'Chutes AI',
+            apiUrl: 'https://llm.chutes.ai/v1/chat/completions',
+            models: [
+                'openai/gpt-oss-20b',
+                'unsloth/gemma-3-4b-it',
+                'zai-org/GLM-4.5-Air',
+                'Alibaba-NLP/Tongyi-DeepResearch-30B-A3B'
+            ]
         }
     };
 
